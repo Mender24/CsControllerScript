@@ -2,38 +2,39 @@ using UnityEngine;
 
 public class SharkHead2 : MonoBehaviour
 {
-    [Header("Цель")]
+    [Header("Target")]
     public Transform target;
 
-    [Header("Скорость движения")]
+    [Header("Movement speed")]
     public float acceleration = 2f;
     public float deceleration = 1.5f;
     public float maxSpeed = 5f;
     private float currentSpeed = 0f;
 
-    [Header("Параметры поворота")]
+    [Header("Turn params")]
     public float turnSpeed = 90f;
 
-    [Header("На каком расстоянии останавливаться")]
+    [Header("Stop dist")]
     public float stopDistance = 0.5f;
 
-    [Header("Аквариум")]
+    [Header("Aquarium bounds")]
     public Bounds aquariumBounds = new Bounds(Vector3.zero, new Vector3(10, 5, 10));
 
-    [Header("Куб безопасности (точки не будут респауниться здесь)")]
+    [Header("Safety cube (don't spawn waypoints zone)")]
     public Bounds safetyBounds = new Bounds(Vector3.zero, new Vector3(2, 2, 2));
 
-    [Header("Параметры свободного плавания")]
+    [Header("free swim params")]
     public float swimSpeed = 2f;
-    public float wanderPointThreshold = 1f; // когда считать точку достигнутой
+    public float wanderPointThreshold = 1f; 
 
-    [Header("Извилистое движение")]
+    [Header("Wavy moves params")]
     public float swayAngle = 10f;
     public float swayFrequency = 1.5f;
 
     private Vector3 wanderPoint;
     private float swayTimer;
     private GameObject player;
+    private GameObject projectile;
 
     void Start()
     {
@@ -44,11 +45,10 @@ public class SharkHead2 : MonoBehaviour
 
     void Update()
     {
-        GameObject projectile = GameObject.FindGameObjectWithTag("Projectile");
-        // Если цели нет, ищем снаряд через тупой файнд (да в каждом кадре, мне похуй)
+        
         if (target == null)
         {
-            // Предпочтение: сначала игрок, потом снаряд
+            // focus on player
             if (player != null &&
                 aquariumBounds.Contains(player.transform.position) &&
                 !safetyBounds.Contains(player.transform.position))
@@ -64,7 +64,7 @@ public class SharkHead2 : MonoBehaviour
         }
         else
         {
-            // Прерываем атаку, если цель вышла из аквариума или в зоне безопасности
+            // stop attack if target out of aquarium, or in safe zone
             if (!aquariumBounds.Contains(target.position) || safetyBounds.Contains(target.position))
             {
                 target = null;
@@ -82,6 +82,10 @@ public class SharkHead2 : MonoBehaviour
         }
     }
 
+    public void SetProjectile(GameObject proj)
+    {
+        projectile = proj;
+    }
     void MoveToTarget()
     {
         Vector3 toTarget = target.position - transform.position;
@@ -102,12 +106,12 @@ public class SharkHead2 : MonoBehaviour
         transform.position += transform.forward * currentSpeed * Time.deltaTime;
     }
 
-    void Wander()
+    void Wander() //free roam
     {
         Vector3 toPoint = wanderPoint - transform.position;
         float distance = toPoint.magnitude;
 
-        // Достигли точки — выбираем новую
+       
         if (distance < wanderPointThreshold)
         {
             PickNewWanderPoint();
@@ -116,18 +120,18 @@ public class SharkHead2 : MonoBehaviour
 
         Vector3 baseDirection = toPoint.normalized;
 
-        // Колебание
+       
         swayTimer += Time.deltaTime;
         float sway = Mathf.Sin(swayTimer * swayFrequency * 2f * Mathf.PI) * swayAngle;
 
         Quaternion swayRotation = Quaternion.AngleAxis(sway, Vector3.up);
         Vector3 swayedDirection = (Quaternion.LookRotation(baseDirection) * swayRotation) * Vector3.forward;
 
-        // Плавный поворот к swayedDirection
+        
         Quaternion targetRotation = Quaternion.LookRotation(swayedDirection);
         transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, turnSpeed * Time.deltaTime);
 
-        // Движение вперёд
+        
         transform.position += transform.forward * swimSpeed * Time.deltaTime;
     }
 
@@ -147,7 +151,7 @@ public class SharkHead2 : MonoBehaviour
 
             tries++;
 
-            // Проверка: точка НЕ в safetyBounds и путь НЕ пересекает safetyBounds
+            // point is NOT in safetyBounds and path does NOT intersect safetyBounds
             if (!safetyBounds.Contains(randomPoint) &&
                 !PathIntersectsSafety(transform.position, randomPoint))
             {
@@ -156,7 +160,7 @@ public class SharkHead2 : MonoBehaviour
 
             if (tries > safetyCheckMaxTries)
             {
-                Debug.LogWarning("Не удалось найти безопасную точку, выбираем любую");
+                Debug.LogWarning("Could not find a safe point, choose any");
                 break;
             }
 
@@ -177,7 +181,7 @@ public class SharkHead2 : MonoBehaviour
         target = newTarget;
     }
 
-    void OnDrawGizmosSelected() //show Gizmos Aquarium
+    void OnDrawGizmosSelected() //show Gizmos of Aquarium
     {
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireCube(aquariumBounds.center, aquariumBounds.size);
